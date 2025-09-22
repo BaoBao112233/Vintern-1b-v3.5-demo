@@ -1,0 +1,172 @@
+.App {
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.App-header h1 {
+  margin: 0 0 20px 0;
+  font-size: 1.8rem;
+}
+
+.App-main {
+  flex: 1;
+  padding: 20px;
+  background-color: #f8f9fa;
+}
+
+.App-footer {
+  background-color: #343a40;
+  color: #adb5bd;
+  padding: 15px;
+  font-size: 0.9rem;
+}
+
+.App-footer a {
+  color: #007bff;
+  text-decoration: none;
+  margin-left: 10px;
+}
+
+.App-footer a:hover {
+  text-decoration: underline;
+}
+
+.demo-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  height: calc(100vh - 200px); /* Subtract header and footer height */
+}
+
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+}
+
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+}
+
+.camera-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  flex: 1;
+}
+
+.controls-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.results-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  flex: 1;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.chat-section {
+  flex: 1;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status indicators */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-indicator.connected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-indicator.disconnected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-indicator.loading {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .demo-container {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    height: auto;
+  }
+  
+  .left-panel,
+  .right-panel {
+    height: auto;
+  }
+  
+  .chat-section {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .App-header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .App-main {
+    padding: 15px;
+  }
+  
+  .camera-section,
+  .controls-section,
+  .results-section {
+    padding: 15px;
+  }
+}
+
+/* Loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}

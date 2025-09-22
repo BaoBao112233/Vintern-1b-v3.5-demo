@@ -1,0 +1,73 @@
+.status-panel {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-label {
+  font-size: 0.8rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.status-value {
+  font-size: 0.9rem;
+  color: white;
+  font-weight: 500;
+}
+
+.status-value.error {
+  color: #ff6b6b;
+}
+
+.status-indicator {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.model-info {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.model-info summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #adb5bd;
+  margin-bottom: 10px;
+}
+
+.model-details {
+  font-size: 0.8rem;
+  color: #dee2e6;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .status-item {
+    text-align: center;
+  }
+}

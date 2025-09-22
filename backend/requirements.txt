@@ -1,0 +1,25 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+python-multipart==0.0.6
+aiofiles==23.2.0
+pillow==10.1.0
+numpy==1.24.4
+requests==2.31.0
+python-dotenv==1.0.0
+pydantic==2.5.0
+opencv-python-headless==4.8.1.78
+base64io==1.0.3
+asyncio-throttle==1.0.2
+aiohttp==3.9.1
+# Local model inference
+torch>=2.0.0
+transformers>=4.35.0
+accelerate>=0.24.0
+einops>=0.7.0
+timm>=0.9.0
+# Object detection
+ultralytics>=8.0.0
+# Additional ML utilities
+sentencepiece>=0.1.99
+protobuf>=3.20.0
