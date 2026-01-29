@@ -1,0 +1,45 @@
+FROM arm32v7/python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies for Coral TPU
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    libusb-1.0-0 \
+    udev \
+    wget \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Coral repository and install Edge TPU runtime
+RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    apt-get update && \
+    apt-get install -y libedgetpu1-std python3-pycoral && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app/ ./app/
+COPY .env.template .env
+
+# Create models directory
+RUN mkdir -p models
+
+# Expose port
+EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+    CMD python -c "import requests; requests.get('http://localhost:8001/health')" || exit 1
+
+# Run application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

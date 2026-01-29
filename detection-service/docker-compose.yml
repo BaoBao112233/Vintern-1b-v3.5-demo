@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Detection Service - Raspberry Pi 4 + Coral USB
+  detection-service:
+    build:
+      context: ./detection-service
+      dockerfile: Dockerfile.arm
+    container_name: detection-service
+    ports:
+      - "8001:8001"
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    privileged: true
+    volumes:
+      - ./detection-service/models:/app/models
+      - ./detection-service/app:/app/app
+    environment:
+      - PORT=8001
+      - HOST=0.0.0.0
+      - SERVICE_IP=192.168.100.10
+      - VLLM_SERVICE_URL=http://192.168.100.20:8002
+      - MODEL_PATH=models/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite
+      - LABELS_PATH=models/coco_labels.txt
+      - CONFIDENCE_THRESHOLD=0.5
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - vintern-network
+
+networks:
+  vintern-network:
+    driver: bridge

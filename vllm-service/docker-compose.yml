@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # VLLM Service - Orange Pi RV 2
+  vllm-service:
+    build:
+      context: ./vllm-service
+      dockerfile: Dockerfile.arm64
+    container_name: vllm-service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./vllm-service/models:/app/models
+      - ./vllm-service/app:/app/app
+    environment:
+      - PORT=8002
+      - HOST=0.0.0.0
+      - SERVICE_IP=192.168.100.20
+      - DETECTION_SERVICE_URL=http://192.168.100.10:8001
+      - MODEL_NAME=5CD-AI/Vintern-1B-v3_5
+      - MODEL_PATH=models/Vintern-1B-v3_5
+      - USE_QUANTIZATION=true
+      - QUANTIZATION_BITS=8
+      - MAX_NEW_TOKENS=256
+      - TEMPERATURE=0.7
+      - TOP_P=0.9
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    shm_size: '2gb'  # Shared memory for model loading
+    deploy:
+      resources:
+        limits:
+          memory: 3.5G  # Leave 0.5GB for system
+    networks:
+      - vintern-network
+
+networks:
+  vintern-network:
+    driver: bridge
