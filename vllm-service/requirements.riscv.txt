@@ -1,0 +1,14 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pillow==10.1.0
+numpy==1.24.3
+python-multipart==0.0.6
+pydantic==2.5.0
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Note: PyTorch, transformers, accelerate, bitsandbytes, sentencepiece
+# are not available as pre-built wheels for RISC-V architecture.
+# You have two options:
+# 1. Build from source (very time consuming on Orange Pi)
+# 2. Use Hugging Face Inference API instead of local model
