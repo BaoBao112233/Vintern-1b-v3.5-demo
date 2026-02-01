@@ -1,5 +1,5 @@
 fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
+uvicorn>=0.23.0
 pillow>=10.0.0
 numpy>=1.24.0
 python-multipart>=0.0.6
@@ -9,5 +9,6 @@ requests>=2.31.0
 
 # Note: PyTorch, transformers, accelerate, bitsandbytes, sentencepiece
 # are not available as pre-built wheels for RISC-V architecture.
+# Using basic uvicorn (without [standard] extras) to avoid Rust-dependent packages.
 # Using Pydantic v1.x to avoid Rust compilation issues on RISC-V.
 # Service will use Hugging Face Inference API instead of local model.
