@@ -8,6 +8,14 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     curl \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libfreetype6-dev \
+    liblcms2-dev \
+    libwebp-dev \
+    libopenjp2-7-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
