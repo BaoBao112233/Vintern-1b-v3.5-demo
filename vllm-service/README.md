@@ -17,22 +17,27 @@ Vision Language Model service với model optimization cho low-memory device.
 ## Installation
 
 ```bash
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
 # Install Python packages
 pip install -r requirements.txt
 
 # Download and quantize model
-python scripts/download_model.py
+python3 scripts/download_model.py
 ```
 
 ## Usage
 
 ```bash
-# Run with uvicorn
+# Run with uvicorn (in virtual environment)
+source venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8002
 
 # Or with Docker
-docker build -f Dockerfile.arm64 -t vllm-service .
-docker run -p 8002:8002 vllm-service
+sudo docker build -f Dockerfile.arm64 -t vllm-service .
+sudo docker run -p 8002:8002 vllm-service
 ```
 
 ## API Endpoints
