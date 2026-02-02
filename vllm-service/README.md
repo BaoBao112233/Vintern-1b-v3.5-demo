@@ -10,9 +10,24 @@ Vision Language Model service với model optimization cho low-memory device.
 - REST API
 
 ## Requirements
-- Orange Pi RV 2 (4GB RAM)
-- Ubuntu 22.04 ARM64
+- Orange Pi RV 2 (4GB RAM)  
+- Ubuntu 22.04 ARM64 or RISC-V
 - Python 3.11+
+- Hugging Face account and API token (for model inference)
+
+## Setup
+
+1. **Get Hugging Face API Token**
+   - Create account at [huggingface.co](https://huggingface.co)
+   - Go to Settings → Access Tokens
+   - Create a new token with read permissions
+
+2. **Configure Environment**
+   ```bash
+   cp .env.template .env
+   # Edit .env and add your HF token:
+   # HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
+   ```
 
 ## Installation
 
