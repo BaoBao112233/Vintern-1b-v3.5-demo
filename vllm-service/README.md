@@ -1,32 +1,41 @@
 # VLLM Service for Orange Pi RV 2
 
-Vision Language Model service với model optimization cho low-memory device.
+Vision Language Model proxy service for low-memory RISC-V device.
+
+## Architecture
+
+**IMPORTANT**: This service runs on RISC-V architecture which cannot run PyTorch. It acts as a **proxy** that forwards requests to a backend inference service running on a GPU-capable machine.
+
+```
+[Orange Pi RISC-V] (vllm-service:8002) 
+        ↓ forwards to
+[Backend Server] (e.g., 192.168.1.14:8000) - Runs actual Vintern model with GPU
+```
 
 ## Features
-- Vintern-1B-v3.5 với INT8 quantization
-- Memory-optimized inference
-- Context-aware analysis (nhận detected objects từ Detection Service)
-- ARM64-optimized
-- REST API
+- Lightweight proxy service for RISC-V
+- Forwards inference requests to GPU backend
+- Memory-optimized for 4GB RAM
+- REST API compatible with detection service
 
 ## Requirements
 - Orange Pi RV 2 (4GB RAM)  
 - Ubuntu 22.04 ARM64 or RISC-V
 - Python 3.11+
-- Hugging Face account and API token (for model inference)
+- **Backend inference server** with GPU running Vintern model
 
 ## Setup
 
-1. **Get Hugging Face API Token**
-   - Create account at [huggingface.co](https://huggingface.co)
-   - Go to Settings → Access Tokens
-   - Create a new token with read permissions
+1. **Setup Backend Inference Service** (on GPU machine)
+   - Clone and setup the main backend service on a machine with GPU
+   - Ensure it's accessible from Orange Pi network
+   - Default URL: `http://192.168.1.14:8000`
 
-2. **Configure Environment**
+2. **Configure Environment** (on Orange Pi)
    ```bash
    cp .env.template .env
-   # Edit .env and add your HF token:
-   # HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
+   # Edit .env and set:
+   # BACKEND_INFERENCE_URL=http://your-gpu-server:8000
    ```
 
 ## Installation
