@@ -16,6 +16,34 @@
   font-size: 1.8rem;
 }
 
+.view-mode-toggle {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.view-mode-toggle button {
+  padding: 10px 20px;
+  border: 2px solid #4CAF50;
+  background: transparent;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.view-mode-toggle button:hover {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.view-mode-toggle button.active {
+  background: #4CAF50;
+  color: white;
+}
+
 .App-main {
   flex: 1;
   padding: 20px;

@@ -5,9 +5,11 @@ import StatusPanel from './components/StatusPanel';
 import ControlPanel from './components/ControlPanel';
 import ResultsPanel from './components/ResultsPanel';
 import ChatInterface from './components/ChatInterface';
+import MultiCameraView from './components/MultiCameraView';
 import { apiService } from './services/api';
 
 function App() {
+  const [viewMode, setViewMode] = useState('multi-camera'); // 'single-camera' or 'multi-camera'
   const [isConnected, setIsConnected] = useState(false);
   const [modelStatus, setModelStatus] = useState(null);
   const [currentResults, setCurrentResults] = useState(null);
@@ -91,6 +93,20 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Vintern-1B Realtime Camera Inference Demo</h1>
+        <div className="view-mode-toggle">
+          <button 
+            className={viewMode === 'multi-camera' ? 'active' : ''}
+            onClick={() => setViewMode('multi-camera')}
+          >
+            Multi-Camera View
+          </button>
+          <button 
+            className={viewMode === 'single-camera' ? 'active' : ''}
+            onClick={() => setViewMode('single-camera')}
+          >
+            Single Camera View
+          </button>
+        </div>
         <StatusPanel 
           isConnected={isConnected}
           modelStatus={modelStatus}
@@ -99,49 +115,53 @@ function App() {
       </header>
 
       <main className="App-main">
-        <div className="demo-container">
-          <div className="left-panel">
-            <div className="camera-section">
-              <CameraFeed
-                settings={settings}
-                onResults={handleResults}
-                onError={handleError}
-                isConnected={isConnected}
-              />
+        {viewMode === 'multi-camera' ? (
+          <MultiCameraView />
+        ) : (
+          <div className="demo-container">
+            <div className="left-panel">
+              <div className="camera-section">
+                <CameraFeed
+                  settings={settings}
+                  onResults={handleResults}
+                  onError={handleError}
+                  isConnected={isConnected}
+                />
+              </div>
+              
+              <div className="controls-section">
+                <ControlPanel
+                  settings={settings}
+                  onSettingsChange={handleSettingsChange}
+                  modelStatus={modelStatus}
+                />
+              </div>
             </div>
             
-            <div className="controls-section">
-              <ControlPanel
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-                modelStatus={modelStatus}
-              />
+            <div className="right-panel">
+              <div className="results-section">
+                <ResultsPanel
+                  results={currentResults}
+                  showDetails={true}
+                  detectedObjects={detectedObjects}
+                />
+              </div>
+              
+              <div className="chat-section">
+                <ChatInterface
+                  currentImageData={currentImageData}
+                  detectedObjects={detectedObjects}
+                  onChatResponse={handleChatResponse}
+                />
+              </div>
             </div>
           </div>
-          
-          <div className="right-panel">
-            <div className="results-section">
-              <ResultsPanel
-                results={currentResults}
-                showDetails={true}
-                detectedObjects={detectedObjects}
-              />
-            </div>
-            
-            <div className="chat-section">
-              <ChatInterface
-                currentImageData={currentImageData}
-                detectedObjects={detectedObjects}
-                onChatResponse={handleChatResponse}
-              />
-            </div>
-          </div>
-        </div>
+        )}
       </main>
 
       <footer className="App-footer">
         <p>
-          Powered by <strong>5CD-AI/Vintern-1B-v3_5</strong> | 
+          Powered by <strong>5CD-AI/Vintern-1B-v3_5</strong> + Coral TPU | 
           <a 
             href="https://github.com/ngxson/vintern-realtime-demo" 
             target="_blank" 
