@@ -118,11 +118,30 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000"],
+    allow_origins=["*"],  # Allow all origins for camera access
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for frontend UI
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    logger.info(f"✅ Mounted static files from {static_dir}")
+    
+    # Serve index.html at root
+    @app.get("/ui")
+    async def serve_ui():
+        """Serve frontend UI"""
+        index_file = static_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return {"error": "UI not built yet"}
 
 # Include API routes
 app.include_router(predict_router, prefix="/api")
@@ -131,11 +150,19 @@ app.include_router(cameras_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Serve frontend UI at root"""
+    index_file = static_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {
         "message": "Vintern-1B Realtime Demo API",
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "endpoints": {
+            "ui": "/ui",
+            "api_docs": "/docs",
+            "health": "/api/health"
+        }
     }
 
 @app.get("/api/health")

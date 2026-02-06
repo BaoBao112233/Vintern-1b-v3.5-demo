@@ -1,44 +1,63 @@
+version: '3.3'
+
 services:
-  # Backend service
+  # Detection Service with Coral TPU
+  detection-service:
+    build:
+      context: ./detection-service
+      dockerfile: Dockerfile
+    container_name: detection-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models:/models
+      - /dev/bus/usb:/dev/bus/usb  # For Coral USB
+    privileged: true  # Required for Coral USB access
+    environment:
+      - SERVICE_IP=0.0.0.0
+      - SERVICE_PORT=8001
+      - MOCK_MODE=${MOCK_MODE:-true}
+      - CORAL_MODEL_PATH=/models/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite
+      - CONFIDENCE_THRESHOLD=0.5
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - camera-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend with Frontend UI
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend
     ports:
       - "8000:8000"
-    volumes:
-      - "./models:/app/models"  # Mount local models directory
-      - "./backend/app:/app/app"  # Mount app code for development
-    environment:
-      - MODEL_MODE=${MODEL_MODE:-local}
-      - HF_TOKEN=${HF_TOKEN:-}
-      - LOCAL_MODEL_PATH=/app/models/Vintern-1B-v3_5
-      - PYTHONPATH=/app
-    # Uncomment for GPU support (requires nvidia-docker)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    networks:
-      - vintern-network
-
-  # Frontend service  
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_BACKEND_URL=http://localhost:8000
-      - REACT_APP_BACKEND_WS_URL=ws://localhost:8000
     depends_on:
-      - backend
+      - detection-service
+    environment:
+      - MODEL_MODE=none
+      - CAMERA1_IP=${CAMERA1_IP:-192.168.1.11}
+      - CAMERA2_IP=${CAMERA2_IP:-192.168.1.13}
+      - CAMERA_USERNAME=${CAMERA_USERNAME:-admin}
+      - CAMERA_PASSWORD=${CAMERA_PASSWORD:-abcd12345}
+      - DETECTION_SERVICE_URL=http://detection-service:8001
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
     networks:
-      - vintern-network
+      - camera-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
-  vintern-network:
+  camera-net:
     driver: bridge
-
-volumes:
-  models_data:
