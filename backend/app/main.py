@@ -12,11 +12,14 @@ from dotenv import load_dotenv
 
 from app.api.predict import router as predict_router
 from app.api.chat import router as chat_router
+from app.api.cameras import router as cameras_router
 from app.services.hf_client import HuggingFaceClient
 from app.services.local_model import get_local_model
 from app.services.object_detection import get_object_detector
 from app.services.local_runner import LocalRunner
 from app.services.websocket_manager import WebSocketManager
+from app.services.camera_manager import get_camera_manager, initialize_cameras
+from app.services.detection_client import get_detection_client
 
 # Load environment variables
 load_dotenv()
@@ -31,23 +34,37 @@ local_runner = None
 local_model = None
 object_detector = None
 websocket_manager = None
+camera_manager = None
+detection_client = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup and cleanup on shutdown"""
-    global hf_client, local_runner, local_model, object_detector, websocket_manager
+    global hf_client, local_runner, local_model, object_detector, websocket_manager, camera_manager, detection_client
     
     logger.info("Starting Vintern-1B Realtime Demo Backend...")
     
     # Initialize WebSocket manager
     websocket_manager = WebSocketManager()
     
-    # Always initialize object detector
+    # Initialize detection client
+    logger.info("Initializing detection client...")
+    detection_client = await get_detection_client()
+    
+    # Initialize camera manager
+    logger.info("Initializing cameras...")
+    try:
+        camera_manager = await initialize_cameras()
+        logger.info("✅ Cameras initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize cameras: {e}")
+    
+    # Always initialize object detector (keep for backward compatibility)
     logger.info("Initializing object detector...")
     object_detector = await get_object_detector()
     
-    # Initialize model services based on mode
-    model_mode = os.getenv("MODEL_MODE", "local").lower()  # Changed default to local
+    # Initialize model services based on mode (optional for camera-only detection)
+    model_mode = os.getenv("MODEL_MODE", "none").lower()  # Default to 'none' for camera detection only
     logger.info(f"Model mode: {model_mode}")
     
     if model_mode == "hf":
@@ -58,14 +75,20 @@ async def lifespan(app: FastAPI):
         await hf_client.initialize()
     elif model_mode == "local":
         logger.info("Initializing local model...")
-        local_model = await get_local_model()
-        
-        # Fallback to local_runner if needed
-        if not local_model.is_available():
-            logger.warning("Local model not available, trying LocalRunner...")
-            model_path = os.getenv("LOCAL_MODEL_PATH", "/models")
-            local_runner = LocalRunner(model_path=model_path)
-            await local_runner.initialize()
+        try:
+            local_model = await get_local_model()
+            
+            # Fallback to local_runner if needed
+            if not local_model.is_available():
+                logger.warning("Local model not available, trying LocalRunner...")
+                model_path = os.getenv("LOCAL_MODEL_PATH", "/models")
+                local_runner = LocalRunner(model_path=model_path)
+                await local_runner.initialize()
+        except Exception as e:
+            logger.warning(f"Failed to initialize local model: {e}")
+            logger.info("Continuing without VLM model (camera detection only)")
+    else:
+        logger.info("Running in camera detection mode only (no VLM model)")
     
     logger.info("Backend initialized successfully!")
     
@@ -79,6 +102,10 @@ async def lifespan(app: FastAPI):
         await local_runner.cleanup()
     if websocket_manager:
         await websocket_manager.cleanup()
+    if camera_manager:
+        camera_manager.stop_all()
+    if detection_client:
+        await detection_client.cleanup()
 
 # Create FastAPI app
 app = FastAPI(
@@ -91,23 +118,51 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000"],
+    allow_origins=["*"],  # Allow all origins for camera access
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Mount static files for frontend UI
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    logger.info(f"✅ Mounted static files from {static_dir}")
+    
+    # Serve index.html at root
+    @app.get("/ui")
+    async def serve_ui():
+        """Serve frontend UI"""
+        index_file = static_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return {"error": "UI not built yet"}
+
 # Include API routes
 app.include_router(predict_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(cameras_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Serve frontend UI at root"""
+    index_file = static_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {
         "message": "Vintern-1B Realtime Demo API",
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "endpoints": {
+            "ui": "/ui",
+            "api_docs": "/docs",
+            "health": "/api/health"
+        }
     }
 
 @app.get("/api/health")
@@ -119,8 +174,20 @@ async def health_check():
         "status": "healthy",
         "model_mode": model_mode,
         "model_ready": False,
-        "object_detection_ready": False
+        "object_detection_ready": False,
+        "detection_service_ready": False,
+        "cameras_ready": False
     }
+    
+    # Check detection client
+    if detection_client:
+        status["detection_service_ready"] = detection_client.is_ready()
+    
+    # Check camera manager
+    if camera_manager:
+        camera_status = camera_manager.get_status()
+        status["cameras_ready"] = len(camera_status) > 0
+        status["cameras"] = camera_status
     
     # Check object detection
     if object_detector:
