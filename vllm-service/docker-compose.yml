@@ -4,14 +4,14 @@ services:
   # VLLM Service - Orange Pi RV 2
   vllm-service:
     build:
-      context: ./vllm-service
+      context: .
       dockerfile: Dockerfile.arm64
     container_name: vllm-service
     ports:
       - "8002:8002"
     volumes:
-      - ./vllm-service/models:/app/models
-      - ./vllm-service/app:/app/app
+      - ./models:/app/models
+      - ./app:/app/app
     environment:
       - PORT=8002
       - HOST=0.0.0.0
