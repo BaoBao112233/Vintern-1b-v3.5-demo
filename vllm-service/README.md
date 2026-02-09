@@ -1,15 +1,5 @@
 # VLLM Service for Orange Pi RV 2
 
-<<<<<<< HEAD
-Vision Language Model service với model optimization cho low-memory device.
-
-## Features
-- Vintern-1B-v3.5 với INT8 quantization
-- Memory-optimized inference
-- Context-aware analysis (nhận detected objects từ Detection Service)
-- ARM64-optimized
-- REST API
-=======
 Vision Language Model proxy service for low-memory RISC-V device.
 
 ## Architecture
@@ -27,28 +17,11 @@ Vision Language Model proxy service for low-memory RISC-V device.
 - Forwards inference requests to GPU backend
 - Memory-optimized for 4GB RAM
 - REST API compatible with detection service
->>>>>>> 343ee07b5a6535a225b421480837bfeacfbdc1d3
 
 ## Requirements
 - Orange Pi RV 2 (4GB RAM)  
 - Ubuntu 22.04 ARM64 or RISC-V
 - Python 3.11+
-<<<<<<< HEAD
-- Hugging Face account and API token (for model inference)
-
-## Setup
-
-1. **Get Hugging Face API Token**
-   - Create account at [huggingface.co](https://huggingface.co)
-   - Go to Settings → Access Tokens
-   - Create a new token with read permissions
-
-2. **Configure Environment**
-   ```bash
-   cp .env.template .env
-   # Edit .env and add your HF token:
-   # HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
-=======
 - **Backend inference server** with GPU running Vintern model
 
 ## Setup
@@ -63,33 +36,53 @@ Vision Language Model proxy service for low-memory RISC-V device.
    cp .env.template .env
    # Edit .env and set:
    # BACKEND_INFERENCE_URL=http://your-gpu-server:8000
->>>>>>> 343ee07b5a6535a225b421480837bfeacfbdc1d3
    ```
 
 ## Installation
+
+### Using Docker (Recommended)
+
+```bash
+# Build and run with Docker Compose
+sudo docker compose up --build -d
+
+# Check logs
+sudo docker compose logs -f
+
+# Stop service
+sudo docker compose down
+```
+
+### Manual Installation
 
 ```bash
 # Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# Install Python packages
-pip install -r requirements.txt
+# Install Python packages (lightweight dependencies for proxy mode)
+pip install -r requirements.riscv.txt
 
-# Download and quantize model
-python3 scripts/download_model.py
+# Run the service
+uvicorn app.main:app --host 0.0.0.0 --port 8002
 ```
 
 ## Usage
 
-```bash
-# Run with uvicorn (in virtual environment)
-source venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8002
+The service acts as a proxy and forwards all inference requests to the backend GPU server.
 
-# Or with Docker
-sudo docker build -f Dockerfile.arm64 -t vllm-service .
-sudo docker run -p 8002:8002 vllm-service
+```bash
+# Test health endpoint
+curl http://localhost:8002/health
+
+# Test analysis endpoint
+curl -X POST http://localhost:8002/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_description": "A red car on the street",
+    "detected_objects": [{"class": "car", "confidence": 0.95}],
+    "question": "What color is the car?"
+  }'
 ```
 
 ## API Endpoints
