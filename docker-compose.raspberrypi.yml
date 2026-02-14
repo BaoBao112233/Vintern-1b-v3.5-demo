@@ -1,0 +1,77 @@
+version: '3.3'
+
+services:
+  # Detection Service with Coral USB Accelerator on Raspberry Pi 4
+  detection-service:
+    build:
+      context: ./detection-service
+      dockerfile: ${DOCKER_FILE:-Dockerfile.mock}
+    container_name: detection-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models:/models
+      - /dev/bus/usb:/dev/bus/usb  # For Coral USB
+    privileged: true  # Required for Coral USB access
+    environment:
+      - SERVICE_IP=0.0.0.0
+      - SERVICE_PORT=8001
+      - MOCK_MODE=${MOCK_MODE:-false}
+      - CORAL_MODEL_PATH=/models/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite
+      - CONFIDENCE_THRESHOLD=0.5
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - camera-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend with Frontend UI for Raspberry Pi 4
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - detection-service
+    environment:
+      # Model configuration
+      - MODEL_MODE=none
+      - VLLM_SERVICE_URL=${VLLM_SERVICE_URL:-http://192.168.1.16:8002}
+      
+      # Camera configuration
+      - CAMERA1_IP=${CAMERA1_IP:-192.168.1.11}
+      - CAMERA2_IP=${CAMERA2_IP:-192.168.1.13}
+      - CAMERA_USERNAME=${CAMERA_USERNAME:-admin}
+      - CAMERA_PASSWORD=${CAMERA_PASSWORD:-abcd12345}
+      - CAMERA_RTSP_PORT=${CAMERA_RTSP_PORT:-554}
+      
+      # Detection service
+      - DETECTION_SERVICE_URL=http://detection-service:8001
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      
+      # Service info
+      - HOST_IP=${HOST_IP:-192.168.1.14}
+      - SERVICE_PORT=8000
+    volumes:
+      - ./logs:/app/logs
+      - ./frontend-simple:/app/static
+    restart: unless-stopped
+    networks:
+      - camera-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  camera-net:
+    driver: bridge

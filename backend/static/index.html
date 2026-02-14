@@ -209,6 +209,10 @@
                 <span>Backend</span>
             </div>
             <div class="status-item">
+                <div class="status-indicator" id="vllm-status"></div>
+                <span>VLLM AI</span>
+            </div>
+            <div class="status-item">
                 <div class="status-indicator" id="detection-status"></div>
                 <span>Detection Service</span>
             </div>
@@ -225,6 +229,7 @@
         <div class="controls">
             <button class="btn-primary" onclick="initializeCameras()">Initialize Cameras</button>
             <button class="btn-secondary" onclick="refreshFrames()">Refresh Now</button>
+            <button class="btn-secondary" onclick="analyzeAllCameras()" style="background:#FF9800">🤖 Analyze All with AI</button>
             <label>
                 <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
                 Auto-refresh
@@ -240,7 +245,7 @@
         <div class="cameras-grid">
             <div class="camera-card">
                 <div class="camera-header">
-                    <h3>Camera 1 (192.168.1.11)</h3>
+                    <h3>Camera 1 (192.168.1.4)</h3>
                     <span class="detection-count" id="cam1-count">0 objects</span>
                 </div>
                 <div class="camera-feed">
@@ -250,12 +255,19 @@
                 <div class="detection-info">
                     <strong>Detections:</strong>
                     <ul class="detection-list" id="cam1-detections"></ul>
+                    <button class="btn-analyze" onclick="analyzeCamera('cam1')" style="margin-top:10px;width:100%;padding:10px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600">
+                        🤖 Analyze with AI
+                    </button>
+                    <div id="cam1-analysis" style="margin-top:10px;padding:10px;background:#3a3a3a;border-radius:5px;display:none">
+                        <strong style="color:#FF9800">AI Analysis:</strong>
+                        <p id="cam1-analysis-text" style="margin:5px 0;color:#fff"></p>
+                    </div>
                 </div>
             </div>
             
             <div class="camera-card">
                 <div class="camera-header">
-                    <h3>Camera 2 (192.168.1.13)</h3>
+                    <h3>Camera 2 (192.168.1.7)</h3>
                     <span class="detection-count" id="cam2-count">0 objects</span>
                 </div>
                 <div class="camera-feed">
@@ -265,6 +277,13 @@
                 <div class="detection-info">
                     <strong>Detections:</strong>
                     <ul class="detection-list" id="cam2-detections"></ul>
+                    <button class="btn-analyze" onclick="analyzeCamera('cam2')" style="margin-top:10px;width:100%;padding:10px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600">
+                        🤖 Analyze with AI
+                    </button>
+                    <div id="cam2-analysis" style="margin-top:10px;padding:10px;background:#3a3a3a;border-radius:5px;display:none">
+                        <strong style="color:#FF9800">AI Analysis:</strong>
+                        <p id="cam2-analysis-text" style="margin:5px 0;color:#fff"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -300,7 +319,15 @@
                 const data = await response.json();
                 
                 document.getElementById('backend-status').classList.add('connected');
+                document.getElementById('vllm-status').classList.toggle('connected', data.vllm_ready);
                 document.getElementById('detection-status').classList.toggle('connected', data.detection_service_ready);
+                
+                // Log VLLM status
+                if (data.vllm_ready) {
+                    console.log('✅ VLLM AI is ready:', data.vllm_info);
+                } else {
+                    console.log('⚠️  VLLM AI is not available');
+                }
                 
                 return true;
             } catch (error) {
@@ -366,6 +393,9 @@
             const detectionsElem = document.getElementById(`${camId}-detections`);
             const statusElem = document.getElementById(`${camId}-status`);
             
+            // Store camera data for analysis
+            currentCameraData[camId] = camData;
+            
             if (camData.image_base64) {
                 img.src = `data:image/jpeg;base64,${camData.image_base64}`;
                 img.style.display = 'block';
@@ -413,6 +443,77 @@
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = setInterval(refreshFrames, refreshDelay);
             }
+        }
+        
+        // Store current camera data for analysis
+        let currentCameraData = {
+            cam1: null,
+            cam2: null
+        };
+        
+        // Analyze single camera with VLLM
+        async function analyzeCamera(camId) {
+            const analysisDiv = document.getElementById(`${camId}-analysis`);
+            const analysisText = document.getElementById(`${camId}-analysis-text`);
+            const btn = event.target;
+            
+            try {
+                // Disable button
+                btn.disabled = true;
+                btn.textContent = '🤖 Analyzing...';
+                
+                // Show analysis div
+                analysisDiv.style.display = 'block';
+                analysisText.textContent = 'Đang phân tích với VLLM AI...';
+                
+                const camData = currentCameraData[camId];
+                if (!camData || !camData.image_base64) {
+                    analysisText.textContent = 'Không có ảnh để phân tích. Vui lòng refresh camera.';
+                    btn.disabled = false;
+                    btn.textContent = '🤖 Analyze with AI';
+                    return;
+                }
+                
+                // Call VLLM API
+                const response = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Hãy mô tả chi tiết những gì bạn thấy trong ảnh từ ${camId === 'cam1' ? 'Camera 1' : 'Camera 2'}. Phân tích các vật thể, hoạt động, và bối cảnh.`,
+                        image_data: `data:image/jpeg;base64,${camData.image_base64}`,
+                        include_objects: true,
+                        confidence_threshold: 0.5
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    analysisText.textContent = data.response || 'Không có phản hồi từ AI';
+                    console.log('VLLM Analysis:', data);
+                } else {
+                    const errorText = await response.text();
+                    analysisText.textContent = `Lỗi: ${errorText}`;
+                    console.error('VLLM API error:', errorText);
+                }
+                
+            } catch (error) {
+                console.error('Failed to analyze camera:', error);
+                analysisText.textContent = `Lỗi kết nối: ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 Analyze with AI';
+            }
+        }
+        
+        // Analyze all cameras
+        async function analyzeAllCameras() {
+            alert('Đang phân tích cả 2 camera với VLLM AI...');
+            await Promise.all([
+                analyzeCamera('cam1'),
+                analyzeCamera('cam2')
+            ]);
         }
         
         // Initialize on load

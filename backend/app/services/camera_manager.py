@@ -11,6 +11,8 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass
 import threading
 from queue import Queue
+import time
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ class CameraConfig:
     width: int = 640
     height: int = 480
     fps: int = 5
+    use_mock: bool = False  # Use mock camera if RTSP fails
 
 
 class RTSPCamera:
@@ -41,6 +44,7 @@ class RTSPCamera:
         self.last_frame: Optional[np.ndarray] = None
         self.error_count = 0
         self.max_errors = 10
+        self.is_mock = False  # Track if using mock mode
         
     def start(self) -> bool:
         """Start camera capture"""
@@ -59,8 +63,12 @@ class RTSPCamera:
             self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize latency
             
             if not self.capture.isOpened():
-                logger.error(f"Failed to open camera {self.config.name}")
-                return False
+                if self.config.use_mock:
+                    logger.warning(f"RTSP failed for {self.config.name}, using MOCK mode")
+                    self.is_mock = True
+                else:
+                    logger.error(f"Failed to open camera {self.config.name}")
+                    return False
             
             # Set resolution
             self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
@@ -82,7 +90,13 @@ class RTSPCamera:
         """Capture frames in background thread"""
         while self.is_running:
             try:
-                ret, frame = self.capture.read()
+                # Generate mock frame if in mock mode
+                if self.is_mock:
+                    frame = self._generate_mock_frame()
+                    ret = True
+                    time.sleep(1.0 / self.config.fps)  # Simulate FPS
+                else:
+                    ret, frame = self.capture.read()
                 
                 if not ret:
                     self.error_count += 1
@@ -143,6 +157,32 @@ class RTSPCamera:
     def is_alive(self) -> bool:
         """Check if camera is running"""
         return self.is_running and self.thread and self.thread.is_alive()
+    
+    def _generate_mock_frame(self) -> np.ndarray:
+        """Generate a mock frame for testing"""
+        # Create blank frame
+        frame = np.zeros((self.config.height, self.config.width, 3), dtype=np.uint8)
+        
+        # Dark gray background
+        frame[:] = (40, 40, 40)
+        
+        # Draw colored rectangle border
+        color = (0, 200, 255)  # Orange
+        cv2.rectangle(frame, (20, 20), (self.config.width-20, self.config.height-20), color, 3)
+        
+        # Add camera name
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text1 = f"MOCK {self.config.name}"
+        text2 = f"IP: {self.config.ip}"
+        text3 = datetime.now().strftime("%H:%M:%S")
+        
+        cv2.putText(frame, text1, (50, 120), font, 1.2, (255, 255, 255), 2)
+        cv2.putText(frame, text2, (50, 180), font, 0.8, (200, 200, 200), 2)
+        cv2.putText(frame, text3, (50, 240), font, 1.0, (0, 255, 100), 2)
+        cv2.putText(frame, "RTSP CONNECTION FAILED", (50, 300), font, 0.7, (0, 100, 255), 2)
+        cv2.putText(frame, "Check camera firewall settings", (50, 330), font, 0.5, (150, 150, 150), 1)
+        
+        return frame
 
 
 class CameraManager:
@@ -226,47 +266,44 @@ async def initialize_cameras():
     """Initialize all configured cameras"""
     manager = get_camera_manager()
     
-    # Camera 1: 192.168.1.11
+    # Camera 1: 192.168.1.4
     cam1_config = CameraConfig(
         id="cam1",
         name="Camera 1",
         rtsp_url="rtsp://admin:abcd12345@{ip}/cam/realmonitor?channel=1&subtype=1",
         username="admin",
         password="abcd12345",
-        ip="192.168.1.11",
+        ip="192.168.1.4",
         width=640,
-        height=480,
-        fps=5
+        height=360,
+        fps=25,
+        use_mock=False  # RTSP working!
     )
     
-    # Camera 2: 192.168.1.13 (fallback to 192.168.1.9)
+    # Camera 2: 192.168.1.7
     cam2_config = CameraConfig(
         id="cam2",
         name="Camera 2",
         rtsp_url="rtsp://admin:abcd12345@{ip}/cam/realmonitor?channel=1&subtype=1",
         username="admin",
         password="abcd12345",
-        ip="192.168.1.13",  # Try this first
+        ip="192.168.1.7",
         width=640,
-        height=480,
-        fps=5
+        height=360,
+        fps=25,
+        use_mock=False  # RTSP working!
     )
     
     # Start cameras
     success1 = manager.add_camera(cam1_config)
     if success1:
-        logger.info("✅ Camera 1 initialized")
+        logger.info("✅ Camera 1 (192.168.1.4) initialized")
     else:
         logger.error("❌ Failed to initialize Camera 1")
     
     success2 = manager.add_camera(cam2_config)
-    if not success2:
-        logger.warning("Trying fallback IP for Camera 2...")
-        cam2_config.ip = "192.168.1.9"
-        success2 = manager.add_camera(cam2_config)
-    
     if success2:
-        logger.info("✅ Camera 2 initialized")
+        logger.info("✅ Camera 2 (192.168.1.7) initialized")
     else:
         logger.error("❌ Failed to initialize Camera 2")
     

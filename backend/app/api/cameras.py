@@ -14,7 +14,6 @@ import numpy as np
 
 from app.services.camera_manager import get_camera_manager, initialize_cameras
 from app.services.detection_client import get_detection_client
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter()

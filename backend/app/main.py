@@ -13,13 +13,13 @@ from dotenv import load_dotenv
 from app.api.predict import router as predict_router
 from app.api.chat import router as chat_router
 from app.api.cameras import router as cameras_router
-from app.services.hf_client import HuggingFaceClient
-from app.services.local_model import get_local_model
+from app.ivices.local_model import get_local_model
 from app.services.object_detection import get_object_detector
 from app.services.local_runner import LocalRunner
 from app.services.websocket_manager import WebSocketManager
 from app.services.camera_manager import get_camera_manager, initialize_cameras
 from app.services.detection_client import get_detection_client
+from app.services.vllm_client import initialize_vllm_client
 
 # Load environment variables
 load_dotenv()
@@ -36,16 +36,29 @@ object_detector = None
 websocket_manager = None
 camera_manager = None
 detection_client = None
+vllm_client = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup and cleanup on shutdown"""
-    global hf_client, local_runner, local_model, object_detector, websocket_manager, camera_manager, detection_client
+    global hf_client, local_runner, local_model, object_detector, websocket_manager, camera_manager, detection_client, vllm_client
     
     logger.info("Starting Vintern-1B Realtime Demo Backend...")
     
     # Initialize WebSocket manager
     websocket_manager = WebSocketManager()
+    
+    # Initialize VLLM client (Orange Pi service)
+    logger.info("Initializing VLLM client...")
+    try:
+        vllm_client = await initialize_vllm_client()
+        if vllm_client.is_available():
+            logger.info("✅ VLLM client connected to Orange Pi")
+        else:
+            logger.warning("⚠️  VLLM client not available (detection only mode)")
+    except Exception as e:
+        logger.error(f"Failed to initialize VLLM client: {e}")
+        logger.warning("Continuing without VLLM service")
     
     # Initialize detection client
     logger.info("Initializing detection client...")
@@ -98,6 +111,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down backend...")
     if hf_client:
         await hf_client.cleanup()
+    if local_model:
+        await local_model.cleanup()
     if local_runner:
         await local_runner.cleanup()
     if websocket_manager:
@@ -106,6 +121,8 @@ async def lifespan(app: FastAPI):
         camera_manager.stop_all()
     if detection_client:
         await detection_client.cleanup()
+    if vllm_client:
+        await vllm_client.cleanup()
 
 # Create FastAPI app
 app = FastAPI(
@@ -143,20 +160,11 @@ if static_dir.exists():
             return FileResponse(index_file)
         return {"error": "UI not built yet"}
 
-# Include API routes
-app.include_router(predict_router, prefix="/api")
-app.include_router(chat_router, prefix="/api")
-app.include_router(cameras_router, prefix="/api")
-
-@app.get("/")
-async def root():
-    """Serve frontend UI at root"""
     index_file = static_dir / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    return {
-        "message": "Vintern-1B Realtime Demo API",
-        "status": "running",
+    return {en-1B Realtime Demo API",
+        "status": "runnin
         "version": "1.0.0",
         "endpoints": {
             "ui": "/ui",
@@ -176,8 +184,15 @@ async def health_check():
         "model_ready": False,
         "object_detection_ready": False,
         "detection_service_ready": False,
-        "cameras_ready": False
+        "cameras_ready": False,
+        "vllm_ready": False
     }
+    
+    # Check VLLM client
+    if vllm_client:
+        status["vllm_ready"] = vllm_client.is_available()
+        if status["vllm_ready"]:
+            status["vllm_info"] = vllm_client.get_info()
     
     # Check detection client
     if detection_client:
