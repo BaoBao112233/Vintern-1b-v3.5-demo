@@ -52,17 +52,29 @@ fi
 
 cd "$LLAMACPP_DIR"
 
-echo "🔨 Building llama.cpp for RISC-V..."
+echo "🔨 Building llama.cpp for RISC-V with CMake..."
 echo "   (This takes 10-15 minutes on Orange Pi RV2)"
-make clean
-make -j$(nproc)
 
-if [ ! -f "llama-server" ]; then
+# Build with CMake
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release -j$(nproc)
+cd ..
+
+# Check if built successfully
+LLAMA_SERVER=""
+if [ -f "build/bin/llama-server" ]; then
+    LLAMA_SERVER="$HOME/llama.cpp/build/bin/llama-server"
+elif [ -f "llama-server" ]; then
+    LLAMA_SERVER="$HOME/llama.cpp/llama-server"
+else
     echo "❌ Build failed: llama-server not found"
     exit 1
 fi
 
 echo "✓ llama.cpp built successfully"
+echo "   Binary: $LLAMA_SERVER"
 echo ""
 
 # Create model directory
@@ -83,7 +95,7 @@ After=network.target
 Type=simple
 User=orangepi
 WorkingDirectory=$HOME/llama.cpp
-ExecStart=$HOME/llama.cpp/llama-server \\
+ExecStart=$LLAMA_SERVER \\
     --model $MODEL_DIR/vintern-1b-q8_0.gguf \\
     --host 0.0.0.0 \\
     --port 8002 \\

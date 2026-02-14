@@ -30,9 +30,26 @@ fi
 cd "$LLAMACPP_DIR"
 git pull
 
-echo "🔨 Building llama.cpp on Raspberry Pi..."
-make clean
-make -j$(nproc)
+echo "🔨 Building llama.cpp on Raspberry Pi with CMake..."
+
+# Install CMake if needed
+if ! command -v cmake &> /dev/null; then
+    echo "📦 Installing CMake..."
+    sudo apt update && sudo apt install -y cmake
+fi
+
+# Build with CMake
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release -j$(nproc)
+cd ..
+
+# Check if built successfully
+if [ ! -f "build/bin/llama-server" ] && [ ! -f "llama-server" ]; then
+    echo "❌ Build failed"
+    exit 1
+fi
 
 echo "✓ llama.cpp built"
 echo ""
@@ -98,14 +115,43 @@ if [ ! -f "$GGUF_FILE" ]; then
     
     echo "   Model directory: $ACTUAL_MODEL_DIR"
     
+    # Find convert script (may be in root or examples/)
+    CONVERT_SCRIPT=""
+    if [ -f "$LLAMACPP_DIR/convert_hf_to_gguf.py" ]; then
+        CONVERT_SCRIPT="$LLAMACPP_DIR/convert_hf_to_gguf.py"
+    elif [ -f "$LLAMACPP_DIR/examples/convert_hf_to_gguf.py" ]; then
+        CONVERT_SCRIPT="$LLAMACPP_DIR/examples/convert_hf_to_gguf.py"
+    elif [ -f "$LLAMACPP_DIR/convert-hf-to-gguf.py" ]; then
+        CONVERT_SCRIPT="$LLAMACPP_DIR/convert-hf-to-gguf.py"
+    else
+        echo "❌ Cannot find convert script"
+        ls -la "$LLAMACPP_DIR"/*.py 2>/dev/null || echo "No .py files in root"
+        exit 1
+    fi
+    
+    echo "   Using convert script: $CONVERT_SCRIPT"
+    
     # Convert to FP16
-    python3 "$LLAMACPP_DIR/convert_hf_to_gguf.py" \
+    python3 "$CONVERT_SCRIPT" \
         "$ACTUAL_MODEL_DIR" \
         --outfile "$MODEL_DIR/vintern-1b-f16.gguf" \
         --outtype f16
     
+    # Find llama-quantize binary
+    QUANTIZE_BIN=""
+    if [ -f "$LLAMACPP_DIR/build/bin/llama-quantize" ]; then
+        QUANTIZE_BIN="$LLAMACPP_DIR/build/bin/llama-quantize"
+    elif [ -f "$LLAMACPP_DIR/llama-quantize" ]; then
+        QUANTIZE_BIN="$LLAMACPP_DIR/llama-quantize"
+    else
+        echo "❌ Cannot find llama-quantize binary"
+        exit 1
+    fi
+    
+    echo "   Using quantize binary: $QUANTIZE_BIN"
+    
     # Quantize to Q8_0
-    "$LLAMACPP_DIR/llama-quantize" \
+    "$QUANTIZE_BIN" \
         "$MODEL_DIR/vintern-1b-f16.gguf" \
         "$GGUF_FILE" \
         Q8_0
