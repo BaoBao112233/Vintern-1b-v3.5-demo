@@ -209,15 +209,19 @@
                 <span>Backend</span>
             </div>
             <div class="status-item">
+                <div class="status-indicator" id="vllm-status"></div>
+                <span>VLLM AI</span>
+            </div>
+            <div class="status-item">
                 <div class="status-indicator" id="detection-status"></div>
                 <span>Detection Service</span>
             </div>
             <div class="status-item">
-                <div class="status-indicator" id="cam1-status"></div>
+                <div class="status-indicator" id="camera1-status"></div>
                 <span>Camera 1</span>
             </div>
             <div class="status-item">
-                <div class="status-indicator" id="cam2-status"></div>
+                <div class="status-indicator" id="camera2-status"></div>
                 <span>Camera 2</span>
             </div>
         </div>
@@ -225,15 +229,26 @@
         <div class="controls">
             <button class="btn-primary" onclick="initializeCameras()">Initialize Cameras</button>
             <button class="btn-secondary" onclick="refreshFrames()">Refresh Now</button>
+            <button class="btn-secondary" onclick="analyzeAllCameras()" style="background:#FF9800">🤖 Analyze All with AI</button>
             <label>
                 <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
-                Auto-refresh
+                Auto-refresh frames
             </label>
             <select id="refreshInterval" onchange="updateRefreshInterval()">
                 <option value="500">0.5s</option>
                 <option value="1000" selected>1s</option>
                 <option value="2000">2s</option>
                 <option value="5000">5s</option>
+            </select>
+            <label style="margin-left:20px;border-left:2px solid #FF9800;padding-left:20px">
+                <input type="checkbox" id="autoContinuousAnalysis" onchange="toggleContinuousAnalysis()">
+                🤖 Continuous AI Analysis
+            </label>
+            <select id="analysisInterval" onchange="updateAnalysisInterval()">
+                <option value="5000">Every 5s</option>
+                <option value="10000" selected>Every 10s</option>
+                <option value="15000">Every 15s</option>
+                <option value="30000">Every 30s</option>
             </select>
         </div>
         
@@ -250,6 +265,13 @@
                 <div class="detection-info">
                     <strong>Detections:</strong>
                     <ul class="detection-list" id="cam1-detections"></ul>
+                    <button class="btn-analyze" onclick="analyzeCamera('cam1')" style="margin-top:10px;width:100%;padding:10px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600">
+                        🤖 Analyze with AI
+                    </button>
+                    <div id="cam1-analysis" style="margin-top:10px;padding:10px;background:#3a3a3a;border-radius:5px;display:none">
+                        <strong style="color:#FF9800">AI Analysis:</strong>
+                        <p id="cam1-analysis-text" style="margin:5px 0;color:#fff"></p>
+                    </div>
                 </div>
             </div>
             
@@ -265,6 +287,13 @@
                 <div class="detection-info">
                     <strong>Detections:</strong>
                     <ul class="detection-list" id="cam2-detections"></ul>
+                    <button class="btn-analyze" onclick="analyzeCamera('cam2')" style="margin-top:10px;width:100%;padding:10px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600">
+                        🤖 Analyze with AI
+                    </button>
+                    <div id="cam2-analysis" style="margin-top:10px;padding:10px;background:#3a3a3a;border-radius:5px;display:none">
+                        <strong style="color:#FF9800">AI Analysis:</strong>
+                        <p id="cam2-analysis-text" style="margin:5px 0;color:#fff"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -280,7 +309,15 @@
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="last-update">-</div>
-                <div class="stat-label">Last Update</div>
+                <div class="stat-label">Last Frame Update</div>
+            </div>
+            <div class="stat-item" style="background:#FF9800">
+                <div class="stat-value" id="ai-analysis-count">0</div>
+                <div class="stat-label">AI Analysis Count</div>
+            </div>
+            <div class="stat-item" style="background:#FF9800">
+                <div class="stat-value" id="last-analysis">-</div>
+                <div class="stat-label">Last AI Analysis</div>
             </div>
         </div>
     </div>
@@ -289,9 +326,12 @@
         // Use relative URL to work with any host
         const BACKEND_URL = window.location.origin;
         let autoRefreshInterval = null;
+        let continuousAnalysisInterval = null;
         let refreshDelay = 1000;
+        let analysisDelay = 10000;
         let framesProcessed = 0;
         let totalDetections = 0;
+        let aiAnalysisCount = 0;
         
         // Check backend health
         async function checkHealth() {
@@ -300,7 +340,15 @@
                 const data = await response.json();
                 
                 document.getElementById('backend-status').classList.add('connected');
+                document.getElementById('vllm-status').classList.toggle('connected', data.vllm_ready);
                 document.getElementById('detection-status').classList.toggle('connected', data.detection_service_ready);
+                
+                // Log VLLM status
+                if (data.vllm_ready) {
+                    console.log('✅ VLLM AI is ready:', data.vllm_info);
+                } else {
+                    console.log('⚠️  VLLM AI is not available');
+                }
                 
                 return true;
             } catch (error) {
@@ -366,6 +414,9 @@
             const detectionsElem = document.getElementById(`${camId}-detections`);
             const statusElem = document.getElementById(`${camId}-status`);
             
+            // Store camera data for analysis
+            currentCameraData[camId] = camData;
+            
             if (camData.image_base64) {
                 img.src = `data:image/jpeg;base64,${camData.image_base64}`;
                 img.style.display = 'block';
@@ -413,6 +464,167 @@
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = setInterval(refreshFrames, refreshDelay);
             }
+        }
+        
+        // Store current camera data for analysis
+        let currentCameraData = {
+            cam1: null,
+            cam2: null
+        };
+        
+        // Toggle continuous AI analysis
+        function toggleContinuousAnalysis() {
+            const enabled = document.getElementById('autoContinuousAnalysis').checked;
+            
+            if (enabled) {
+                console.log('🤖 Starting continuous AI analysis...');
+                continuousAnalysisInterval = setInterval(runContinuousAnalysis, analysisDelay);
+                // Run immediately
+                runContinuousAnalysis();
+            } else {
+                console.log('⏸️  Stopping continuous AI analysis');
+                if (continuousAnalysisInterval) {
+                    clearInterval(continuousAnalysisInterval);
+                    continuousAnalysisInterval = null;
+                }
+            }
+        }
+        
+        // Update analysis interval
+        function updateAnalysisInterval() {
+            analysisDelay = parseInt(document.getElementById('analysisInterval').value);
+            
+            if (continuousAnalysisInterval) {
+                clearInterval(continuousAnalysisInterval);
+                continuousAnalysisInterval = setInterval(runContinuousAnalysis, analysisDelay);
+            }
+        }
+        
+        // Run continuous analysis on all cameras
+        async function runContinuousAnalysis() {
+            console.log('🤖 Running continuous analysis...');
+            
+            // Analyze both cameras in parallel
+            await Promise.all([
+                analyzeCameraBackground('cam1'),
+                analyzeCameraBackground('cam2')
+            ]);
+            
+            // Update stats
+            aiAnalysisCount++;
+            document.getElementById('ai-analysis-count').textContent = aiAnalysisCount;
+            document.getElementById('last-analysis').textContent = new Date().toLocaleTimeString();
+        }
+        
+        // Background analysis (no button interaction)
+        async function analyzeCameraBackground(camId) {
+            const analysisDiv = document.getElementById(`${camId}-analysis`);
+            const analysisText = document.getElementById(`${camId}-analysis-text`);
+            
+            try {
+                const camData = currentCameraData[camId];
+                if (!camData || !camData.image_base64) {
+                    console.log(`⚠️  No image data for ${camId}`);
+                    return;
+                }
+                
+                // Show analyzing state
+                analysisDiv.style.display = 'block';
+                analysisText.innerHTML = '<em style="color:#FFB74D">🤖 Đang phân tích...</em>';
+                
+                // Call VLLM API
+                const response = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Phân tích nhanh những gì bạn thấy trong ảnh ${camId === 'cam1' ? 'Camera 1' : 'Camera 2'}. Mô tả ngắn gọn các vật thể và hoạt động chính.`,
+                        image_data: `data:image/jpeg;base64,${camData.image_base64}`,
+                        include_objects: true,
+                        confidence_threshold: 0.5
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    analysisText.textContent = data.response || 'Không có phản hồi từ AI';
+                    console.log(`✅ ${camId} analysis:`, data.response.substring(0, 100));
+                } else {
+                    const errorText = await response.text();
+                    analysisText.textContent = `⚠️ ${errorText}`;
+                    console.error(`❌ ${camId} VLLM error:`, errorText);
+                }
+                
+            } catch (error) {
+                console.error(`❌ Failed to analyze ${camId}:`, error);
+                analysisText.textContent = `⚠️ Lỗi: ${error.message}`;
+            }
+        }
+        
+        // Analyze single camera with VLLM
+        async function analyzeCamera(camId) {
+            const analysisDiv = document.getElementById(`${camId}-analysis`);
+            const analysisText = document.getElementById(`${camId}-analysis-text`);
+            const btn = event.target;
+            
+            try {
+                // Disable button
+                btn.disabled = true;
+                btn.textContent = '🤖 Analyzing...';
+                
+                // Show analysis div
+                analysisDiv.style.display = 'block';
+                analysisText.textContent = 'Đang phân tích với VLLM AI...';
+                
+                const camData = currentCameraData[camId];
+                if (!camData || !camData.image_base64) {
+                    analysisText.textContent = 'Không có ảnh để phân tích. Vui lòng refresh camera.';
+                    btn.disabled = false;
+                    btn.textContent = '🤖 Analyze with AI';
+                    return;
+                }
+                
+                // Call VLLM API
+                const response = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Hãy mô tả chi tiết những gì bạn thấy trong ảnh từ ${camId === 'cam1' ? 'Camera 1' : 'Camera 2'}. Phân tích các vật thể, hoạt động, và bối cảnh.`,
+                        image_data: `data:image/jpeg;base64,${camData.image_base64}`,
+                        include_objects: true,
+                        confidence_threshold: 0.5
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    analysisText.textContent = data.response || 'Không có phản hồi từ AI';
+                    console.log('VLLM Analysis:', data);
+                } else {
+                    const errorText = await response.text();
+                    analysisText.textContent = `Lỗi: ${errorText}`;
+                    console.error('VLLM API error:', errorText);
+                }
+                
+            } catch (error) {
+                console.error('Failed to analyze camera:', error);
+                analysisText.textContent = `Lỗi kết nối: ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 Analyze with AI';
+            }
+        }
+        
+        // Analyze all cameras
+        async function analyzeAllCameras() {
+            alert('Đang phân tích cả 2 camera với VLLM AI...');
+            await Promise.all([
+                analyzeCamera('cam1'),
+                analyzeCamera('cam2')
+            ]);
         }
         
         // Initialize on load
