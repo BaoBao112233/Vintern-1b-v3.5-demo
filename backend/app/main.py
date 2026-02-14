@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 from app.api.predict import router as predict_router
 from app.api.chat import router as chat_router
 from app.api.cameras import router as cameras_router
-from app.ivices.local_model import get_local_model
+from app.api.inference import router as inference_router
+from app.services.local_model import get_local_model
 from app.services.object_detection import get_object_detector
 from app.services.local_runner import LocalRunner
 from app.services.websocket_manager import WebSocketManager
@@ -140,6 +141,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include API routers
+app.include_router(cameras_router, prefix="/api", tags=["cameras"])
+app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(predict_router, prefix="/api", tags=["predict"])
+app.include_router(inference_router, prefix="/api", tags=["inference"])
 
 # Mount static files for frontend UI
 from pathlib import Path
