@@ -26,6 +26,23 @@ if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "$ORANGEPI_USER@$ORANGEPI_IP" exit
     echo ""
 fi
 
+# Load Hugging Face token from .env
+HF_TOKEN=""
+if [ -f "backend/.env" ]; then
+    HF_TOKEN=$(grep "HUGGINGFACE_TOKEN=" backend/.env | cut -d'=' -f2)
+fi
+if [ -z "$HF_TOKEN" ] && [ -f ".env" ]; then
+    HF_TOKEN=$(grep "HUGGINGFACE_TOKEN=" .env | cut -d'=' -f2)
+fi
+
+if [ -z "$HF_TOKEN" ]; then
+    echo "⚠️  HUGGINGFACE_TOKEN not found in .env files"
+    read -p "Enter Hugging Face token (hf_xxx): " HF_TOKEN
+fi
+
+echo "✓ Hugging Face token loaded"
+echo ""
+
 # Copy setup script to Orange Pi
 echo "📤 Copying setup script to Orange Pi..."
 scp setup_orangepi_llamacpp.sh "$ORANGEPI_USER@$ORANGEPI_IP:~/"
@@ -44,8 +61,8 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Run setup
-ssh -t "$ORANGEPI_USER@$ORANGEPI_IP" "bash ~/setup_orangepi_llamacpp.sh"
+# Run setup with token
+ssh -t "$ORANGEPI_USER@$ORANGEPI_IP" "export HUGGINGFACE_TOKEN='$HF_TOKEN' && bash ~/setup_orangepi_llamacpp.sh"
 
 if [ $? -ne 0 ]; then
     echo "❌ Setup failed on Orange Pi"
