@@ -44,7 +44,7 @@ def test_inference(image_path: str):
     print("🚀 Sending request to server...")
     try:
         response = requests.post(
-            "http://localhost:8080/v1/chat/completions",
+            "http://192.168.1.3:8080/v1/chat/completions",
             json=payload,
             timeout=60
         )
