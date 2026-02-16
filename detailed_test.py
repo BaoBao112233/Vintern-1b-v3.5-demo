@@ -121,14 +121,33 @@ def analyze_image_detailed(image_path: str):
     print("📋 TỔNG HỢP PHÂN TÍCH:")
     print(f"{'='*70}\n")
     
-    full_description = []
-    for item in results:
-        full_description.append(f"• {item['answer']}")
+    # Combine all answers into a coherent description
+    full_description = " ".join([item['answer'] for item in results])
     
-    print("\n".join(full_description))
-    print(f"\n{'='*70}\n")
+    # Clean up duplicates and format better
+    sentences = full_description.split('.')
+    unique_sentences = []
+    seen = set()
     
-    return results
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if sentence and sentence not in seen and len(sentence) > 10:
+            unique_sentences.append(sentence)
+            seen.add(sentence)
+    
+    formatted_description = ". ".join(unique_sentences) + "."
+    
+    print("🖼️ MÔ TẢ TỔNG HỢP:\n")
+    print(formatted_description)
+    
+    print(f"\n\n📊 CHI TIẾT TỪNG CÂU HỎI:\n")
+    for i, item in enumerate(results, 1):
+        print(f"{i}. {item['question']}")
+        print(f"   → {item['answer']}\n")
+    
+    print(f"{'='*70}\n")
+    
+    return results, formatted_description
 
 
 if __name__ == "__main__":
