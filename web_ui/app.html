@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera + AI Analysis System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #52c41a;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .camera-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .camera-header h2 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .camera-feed {
+            position: relative;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            margin-bottom: 15px;
+        }
+
+        .camera-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .timestamp {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #0070e0;
+        }
+
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #3aa015;
+        }
+
+        .btn-secondary {
+            background: #8c8c8c;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #6c6c6c;
+        }
+
+        .analysis-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
+        }
+
+        .analysis-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .analysis-content {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .analysis-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid #1890ff;
+        }
+
+        .analysis-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .analysis-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .analysis-text {
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .prompt-section {
+            margin-bottom: 15px;
+        }
+
+        .prompt-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d9d9d9;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: #1890ff;
+        }
+
+        .quick-prompts {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .quick-prompt-btn {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .quick-prompt-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .error-message {
+            background: #fff2e8;
+            border: 1px solid #ffbb96;
+            color: #d4380d;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .success-message {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #333;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span class="status-indicator"></span>
+                🎥 Camera + AI Analysis System
+            </h1>
+            <p style="color: #666; margin-top: 8px;">
+                Raspberry Pi 4 + Vintern-1B Vision Language Model
+            </p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Camera 1 -->
+            <div class="camera-panel">
+                <div class="camera-header">
+                    <h2>📹 Camera 1 (192.168.1.4)</h2>
+                    <span id="camera1-status" style="font-size: 12px; color: #666;">Standby</span>
+                </div>
+                <div class="camera-feed">
+                    <img id="camera1-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect fill='%23f0f0f0' width='640' height='360'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23999' font-size='20'%3ECamera 1%3C/text%3E%3C/svg%3E" alt="Camera 1">
+                    <div id="camera1-loading" class="loading-overlay" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+                    <div id="camera1-timestamp" class="timestamp" style="display: none;"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn-primary" onclick="captureFrame(1)">
+                        📸 Capture
+                    </button>
+                    <button class="btn-success" onclick="analyzeFrame(1)">
+                        🤖 Analyze
+                    </button>
+                    <button class="btn-secondary" onclick="startAutoRefresh(1)">
+                        🔄 Auto Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Camera 2 -->
+            <div class="camera-panel">
+                <div class="camera-header">
+                    <h2>📹 Camera 2 (192.168.1.7)</h2>
+                    <span id="camera2-status" style="font-size: 12px; color: #666;">Standby</span>
+                </div>
+                <div class="camera-feed">
+                    <img id="camera2-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect fill='%23f0f0f0' width='640' height='360'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23999' font-size='20'%3ECamera 2%3C/text%3E%3C/svg%3E" alt="Camera 2">
+                    <div id="camera2-loading" class="loading-overlay" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+                    <div id="camera2-timestamp" class="timestamp" style="display: none;"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn-primary" onclick="captureFrame(2)">
+                        📸 Capture
+                    </button>
+                    <button class="btn-success" onclick="analyzeFrame(2)">
+                        🤖 Analyze
+                    </button>
+                    <button class="btn-secondary" onclick="startAutoRefresh(2)">
+                        🔄 Auto Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analysis Panel -->
+            <div class="analysis-panel">
+                <div class="analysis-header">
+                    <h2>🤖 AI Analysis Results</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="auto-analyze-btn" class="btn-success" onclick="toggleAutoAnalyze()" style="background: #52c41a;">
+                            🤖 Start Auto Analyze (Every 5s)
+                        </button>
+                        <button class="btn-secondary" onclick="clearAnalysis()">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="prompt-section">
+                    <label for="prompt-input" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                        Custom Prompt (Vietnamese or English):
+                    </label>
+                    <textarea 
+                        id="prompt-input" 
+                        class="prompt-input" 
+                        placeholder="Ví dụ: Mô tả chi tiết những gì bạn thấy trong ảnh. Có người không? Có xe không?"
+                    >Mô tả chi tiết những gì bạn thấy trong ảnh. Có người không? Có xe không?</textarea>
+                    
+                    <div class="quick-prompts">
+                        <button class="quick-prompt-btn" onclick="setPrompt('Mô tả chi tiết những gì bạn thấy trong ảnh.')">
+                            📝 Mô tả chung
+                        </button>
+                        <button class="quick-prompt-btn" onclick="setPrompt('Có người trong ảnh không? Họ đang làm gì?')">
+                            👤 Phát hiện người
+                        </button>
+                        <button class="quick-prompt-btn" onclick="setPrompt('Có xe nào trong ảnh không? Loại xe gì?')">
+                            🚗 Phát hiện xe
+                        </button>
+                        <button class="quick-prompt-btn" onclick="setPrompt('Describe everything you see in this image in detail.')">
+                            🌐 English
+                        </button>
+                    </div>
+                </div>
+
+                <div id="analysis-content" class="analysis-content">
+                    <p style="text-align: center; color: #999; padding: 40px 0;">
+                        Chưa có kết quả phân tích. Hãy chụp ảnh và nhấn "Analyze" để bắt đầu.
+                    </p>
+                </div>
+
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Analyses</span>
+                        <span class="stat-value" id="total-analyses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Latency</span>
+                        <span class="stat-value" id="avg-latency">0ms</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Last Update</span>
+                        <span class="stat-value" id="last-update">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Auto detect base URL
+        const API_BASE_URL = window.location.origin;
+        
+        // Auto-refresh and Auto-analyze intervals (in milliseconds)
+        const AUTO_REFRESH_INTERVAL = 2000;  // 2 seconds for camera refresh
+        const AUTO_ANALYZE_INTERVAL = 5000;  // 5 seconds for AI analysis
+        
+        // State
+        let autoRefreshIntervals = {1: null, 2: null};
+        let autoAnalyzeInterval = null;
+        let lastAnalyzedCamera = 1;
+        let totalAnalyses = 0;
+        let totalLatency = 0;
+        let isConnected = false;
+
+        // Capture frame from camera
+        async function captureFrame(cameraId) {
+            const img = document.getElementById(`camera${cameraId}-img`);
+            const loading = document.getElementById(`camera${cameraId}-loading`);
+            const timestamp = document.getElementById(`camera${cameraId}-timestamp`);
+            const status = document.getElementById(`camera${cameraId}-status`);
+
+            try {
+                status.textContent = 'Capturing...';
+                loading.style.display = 'flex';
+                loading.innerHTML = '<div class="spinner"></div><div style="margin-left: 10px;">Đang chụp...</div>';
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+                const response = await fetch(`${API_BASE_URL}/api/capture/${cameraId}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                
+                img.src = imageUrl;
+                
+                const now = new Date();
+                timestamp.textContent = now.toLocaleTimeString('vi-VN');
+                timestamp.style.display = 'block';
+                
+                status.textContent = 'Ready';
+                
+            } catch (error) {
+                console.error('Capture error:', error);
+                status.textContent = 'Error';
+                if (error.name === 'AbortError') {
+                    showError(`Camera ${cameraId}: Timeout (quá 10 giây)`);
+                } else {
+                    showError(`Camera ${cameraId}: ${error.message}`);
+                }
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Analyze frame with AI
+        async function analyzeFrame(cameraId) {
+            const img = document.getElementById(`camera${cameraId}-img`);
+            const loading = document.getElementById(`camera${cameraId}-loading`);
+            const status = document.getElementById(`camera${cameraId}-status`);
+            const prompt = document.getElementById('prompt-input').value;
+
+            if (!prompt.trim()) {
+                showError('Vui lòng nhập prompt!');
+                return;
+            }
+
+            try {
+                status.textContent = 'Analyzing with AI...';
+                loading.style.display = 'flex';
+                loading.innerHTML = '<div class="spinner"></div><div style="margin-left: 10px;">AI đang phân tích... (~5s)</div>';
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+                const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        camera_id: cameraId,
+                        prompt: prompt,
+                        save_frame: true,
+                        max_tokens: 512
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    addAnalysisResult(cameraId, prompt, result);
+                    updateStats(result.latency_ms);
+                    status.textContent = 'Ready';
+                } else {
+                    throw new Error(result.error || 'Analysis failed');
+                }
+
+            } catch (error) {
+                console.error('Analysis error:', error);
+                status.textContent = 'Error';
+                if (error.name === 'AbortError') {
+                    showError(`Analysis timeout (quá 60 giây). VLLM service có thể đang chậm.`);
+                } else {
+                    showError(`Analysis failed: ${error.message}`);
+                }
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Add analysis result to panel
+        function addAnalysisResult(cameraId, prompt, result) {
+            const container = document.getElementById('analysis-content');
+            
+            // Clear placeholder
+            if (container.querySelector('p[style*="text-align: center"]')) {
+                container.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = 'analysis-item';
+            item.innerHTML = `
+                <div class="analysis-meta">
+                    <span>📹 Camera ${cameraId}</span>
+                    <span>⏱️ ${result.latency_ms.toFixed(1)}ms</span>
+                    <span>🕒 ${new Date(result.timestamp).toLocaleTimeString('vi-VN')}</span>
+                </div>
+                <div style="margin-bottom: 10px; font-size: 13px; color: #666;">
+                    <strong>Prompt:</strong> ${prompt}
+                </div>
+                <div class="analysis-text">
+                    ${result.response}
+                </div>
+            `;
+            
+            container.insertBefore(item, container.firstChild);
+            
+            // Keep only last 10 results
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Update statistics
+        function updateStats(latency) {
+            totalAnalyses++;
+            totalLatency += latency;
+            
+            document.getElementById('total-analyses').textContent = totalAnalyses;
+            document.getElementById('avg-latency').textContent = 
+                `${(totalLatency / totalAnalyses).toFixed(0)}ms`;
+            document.getElementById('last-update').textContent = 
+                new Date().toLocaleTimeString('vi-VN');
+        }
+
+        // Set prompt
+        function setPrompt(text) {
+            document.getElementById('prompt-input').value = text;
+        }
+
+        // Clear analysis
+        function clearAnalysis() {
+            const container = document.getElementById('analysis-content');
+            container.innerHTML = `
+                <p style="text-align: center; color: #999; padding: 40px 0;">
+                    Đã xóa. Hãy chụp ảnh và nhấn "Analyze" để bắt đầu.
+                </p>
+            `;
+        }
+
+        // Auto refresh
+        function startAutoRefresh(cameraId) {
+            if (autoRefreshIntervals[cameraId]) {
+                clearInterval(autoRefreshIntervals[cameraId]);
+                autoRefreshIntervals[cameraId] = null;
+                document.getElementById(`camera${cameraId}-status`).textContent = 'Ready';
+                return;
+            }
+
+            // Initial capture
+            captureFrame(cameraId);
+            
+            // Set interval
+            autoRefreshIntervals[cameraId] = setInterval(() => {
+                captureFrame(cameraId);
+            }, AUTO_REFRESH_INTERVAL);
+
+            document.getElementById(`camera${cameraId}-status`).textContent = 'Auto refreshing...';
+        }
+
+        // Auto analyze - alternates between cameras
+        function toggleAutoAnalyze() {
+            const btn = event.target;
+            
+            if (autoAnalyzeInterval) {
+                clearInterval(autoAnalyzeInterval);
+                autoAnalyzeInterval = null;
+                btn.textContent = '🤖 Start Auto Analyze (Every 5s)';
+                btn.style.background = '#52c41a';
+                return;
+            }
+            
+            btn.textContent = '⏸️ Stop Auto Analyze';
+            btn.style.background = '#ff4d4f';
+            
+            // Initial analyze
+            analyzeFrame(lastAnalyzedCamera);
+            
+            // Set interval
+            autoAnalyzeInterval = setInterval(() => {
+                // Alternate between cameras
+                lastAnalyzedCamera = lastAnalyzedCamera === 1 ? 2 : 1;
+                analyzeFrame(lastAnalyzedCamera);
+            }, AUTO_ANALYZE_INTERVAL);
+        }
+
+        // Show error
+        function showError(message) {
+            const container = document.getElementById('analysis-content');
+            const error = document.createElement('div');
+            error.className = 'error-message';
+            error.textContent = message;
+            container.insertBefore(error, container.firstChild);
+            
+            setTimeout(() => {
+                error.remove();
+            }, 5000);
+        }
+
+        // Test connection on load with retry
+        async function testConnection(retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    console.log(`Testing connection attempt ${i + 1}/${retries}...`);
+                    const response = await fetch(`${API_BASE_URL}/health`, { timeout: 5000 });
+                    const data = await response.json();
+                    console.log('✅ Backend status:', data);
+                    isConnected = true;
+                    
+                    // Update UI
+                    document.querySelector('.status-indicator').style.background = '#52c41a';
+                    
+                    // Auto capture initial frames
+                    setTimeout(() => captureFrame(1), 500);
+                    setTimeout(() => captureFrame(2), 1000);
+                    
+                    // Auto-start continuous refresh for both cameras after 3 seconds
+                    setTimeout(() => {
+                        console.log('🎬 Auto-starting continuous camera refresh...');
+                        startAutoRefresh(1);
+                        startAutoRefresh(2);
+                    }, 3000);
+                    
+                    return true;
+                } catch (error) {
+                    console.error(`Connection attempt ${i + 1} failed:`, error);
+                    if (i === retries - 1) {
+                        document.querySelector('.status-indicator').style.background = '#ff4d4f';
+                        showError(`Không thể kết nối đến backend: ${API_BASE_URL}\n\nKiểm tra:\n1. Backend có đang chạy? (ps aux | grep backend_service)\n2. Đúng IP/Port không?\n3. Firewall có block không?`);
+                        return false;
+                    }
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            console.log('API Base URL:', API_BASE_URL);
+            testConnection();
+        });
+
+        // Cleanup intervals on unload
+        window.addEventListener('beforeunload', () => {
+            Object.values(autoRefreshIntervals).forEach(interval => {
+                if (interval) clearInterval(interval);
+            });
+            if (autoAnalyzeInterval) clearInterval(autoAnalyzeInterval);
+        });
+    </script>
+</body>
+</html>
