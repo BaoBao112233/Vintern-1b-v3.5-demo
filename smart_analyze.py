@@ -47,7 +47,7 @@ def ask_question(image_url: str, question: str, context: list = None) -> tuple:
     
     try:
         response = requests.post(
-            "http://localhost:8080/v1/chat/completions",
+            "http://192.168.1.3:8080/v1/chat/completions",
             json=payload,
             timeout=60
         )
