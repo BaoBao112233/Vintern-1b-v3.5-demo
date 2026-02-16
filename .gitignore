@@ -45,6 +45,13 @@ models/
 *.bin
 *.safetensors
 
+# Inference server logs
+pc-inference-server/logs/
+
+# llama.cpp (external dependency, don't commit)
+llama.cpp-vintern/
+llama-bin/
+
 # IDE
 .vscode/
 .idea/
@@ -75,3 +82,7 @@ temp/
 .cache/
 .npm/
 .yarn/
+
+# Model
+yolov8n.pt
+

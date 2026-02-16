@@ -1,0 +1,101 @@
+services:
+  # vLLM Inference Server (CPU Mode for GTX 1050 Ti 4GB)
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vintern-vllm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models:ro  # Read-only mount
+    environment:
+      # vLLM Configuration
+      - VLLM_WORKER_MULTIPROC_METHOD=spawn
+      - OMP_NUM_THREADS=4
+      - HF_HOME=/tmp/huggingface
+      # Disable GPU (critical for our setup)
+      - CUDA_VISIBLE_DEVICES=""
+    command:
+      - --model
+      - /models/Vintern-1B-v3_5
+      - --device
+      - cpu
+      - --dtype
+      - float16
+      - --max-model-len
+      - "2048"
+      - --max-num-seqs
+      - "2"
+      - --port
+      - "8000"
+      - --host
+      - "0.0.0.0"
+      - --trust-remote-code
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - vintern-network
+    # CPU resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # Backend API Service
+  backend:
+    build: ./backend
+    container_name: vintern-backend
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./models:/models:ro
+    environment:
+      - VLLM_API_URL=http://vllm:8000/v1
+      - CAMERA_1_URL=${CAMERA_1_URL}
+      - CAMERA_2_URL=${CAMERA_2_URL}
+      - LOG_LEVEL=INFO
+      - DETECTION_MODEL=yolov8n.pt
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      vllm:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vintern-network
+    # GPU access for detection
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Frontend UI
+  frontend:
+    build: ./frontend
+    container_name: vintern-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8001
+      - REACT_APP_WS_URL=ws://localhost:8001
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - vintern-network
+
+networks:
+  vintern-network:
+    driver: bridge
+    name: vintern-network

@@ -1,0 +1,24 @@
+[Unit]
+Description=Vintern 1B Inference Server (llama.cpp)
+After=network.target
+
+[Service]
+Type=simple
+User=baobao
+WorkingDirectory=/home/baobao/Projects/Vintern-1b-v3.5-demo/models/gguf
+ExecStart=/home/baobao/Projects/llama.cpp-vintern/build/bin/llama-server \
+    -m Vintern-1B-v3_5-Q8_0.gguf \
+    --mmproj mmproj-Vintern-1B-v3_5-Q8_0.gguf \
+    --chat-template vicuna \
+    --host 0.0.0.0 \
+    --port 8080 \
+    -t 4 \
+    -c 2048 \
+    -b 512
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/baobao/Projects/Vintern-1b-v3.5-demo/pc-inference-server/logs/server.log
+StandardError=append:/home/baobao/Projects/Vintern-1b-v3.5-demo/pc-inference-server/logs/server_error.log
+
+[Install]
+WantedBy=multi-user.target
