@@ -1,6 +1,15 @@
 # Logs
 logs/
 *.log
+*.pid
+
+# Output files
+output/
+*.jpg
+*.png
+
+# Archive (old/backup files)
+archive/
 
 # Environment files
 .env
